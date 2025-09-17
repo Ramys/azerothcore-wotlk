@@ -1578,7 +1578,7 @@ void Creature::SelectLevel(bool changelevel)
     SetModifierValue(UNIT_MOD_ATTACK_POWER, BASE_VALUE, stats->AttackPower);
     SetModifierValue(UNIT_MOD_ATTACK_POWER_RANGED, BASE_VALUE, stats->RangedAttackPower);
 
-    sScriptMgr->Creature_SelectLevel(cInfo, this);
+    sScriptMgr->OnCreatureSelectLevel(cInfo, this);
 }
 
 float Creature::_GetHealthMod(int32 Rank)
@@ -1985,8 +1985,6 @@ void Creature::setDeathState(DeathState state, bool despawn)
         ReplaceAllNpcFlags(UNIT_NPC_FLAG_NONE);
 
         Dismount();     // if creature is mounted on a virtual mount, remove it at death
-
-        setActive(false);
 
         if (HasSearchedAssistance())
         {
@@ -3903,7 +3901,7 @@ bool Creature::IsUpdateNeeded()
     if (IsInCombat())
         return true;
 
-    if (IsVisibilityOverridden())
+    if (!GetObjectVisibilityContainer().GetVisiblePlayersMap().empty())
         return true;
 
     if (ToTempSummon())
@@ -3913,6 +3911,9 @@ bool Creature::IsUpdateNeeded()
         return true;
 
     if (HasUnitState(UNIT_STATE_EVADE))
+        return true;
+
+    if (m_formation && m_formation->GetLeader() != this)
         return true;
 
     return false;
