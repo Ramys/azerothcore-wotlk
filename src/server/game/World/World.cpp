@@ -1,14 +1,14 @@
 /*
  * This file is part of the AzerothCore Project. See AUTHORS file for Copyright information
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Affero General Public License as published by the
- * Free Software Foundation; either version 3 of the License, or (at your
- * option) any later version.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
  * You should have received a copy of the GNU General Public License along
@@ -766,6 +766,12 @@ void World::SetInitialWorldSettings()
     LOG_INFO("server.loading", "Loading GameTeleports...");
     sObjectMgr->LoadGameTele();
 
+    LOG_INFO("server.loading", "Loading Trainers..."); // must be after LoadCreatureTemplates
+    sObjectMgr->LoadTrainers();
+
+    LOG_INFO("server.loading", "Loading Creature default trainers...");
+    sObjectMgr->LoadCreatureDefaultTrainers();
+
     LOG_INFO("server.loading", "Loading Gossip Menu...");
     sObjectMgr->LoadGossipMenu();
 
@@ -774,9 +780,6 @@ void World::SetInitialWorldSettings()
 
     LOG_INFO("server.loading", "Loading Vendors...");
     sObjectMgr->LoadVendors();                                   // must be after load CreatureTemplate and ItemTemplate
-
-    LOG_INFO("server.loading", "Loading Trainers...");
-    sObjectMgr->LoadTrainerSpell();                              // must be after load CreatureTemplate
 
     LOG_INFO("server.loading", "Loading Waypoints...");
     sWaypointMgr->Load();
@@ -884,7 +887,6 @@ void World::SetInitialWorldSettings()
     stmt->SetData(2, GitRevision::GetFullVersion());
     LoginDatabase.Execute(stmt);
 
-    _timers[WUPDATE_WEATHERS].SetInterval(1 * IN_MILLISECONDS);
     _timers[WUPDATE_UPTIME].SetInterval(getIntConfig(CONFIG_UPTIME_UPDATE)*MINUTE * IN_MILLISECONDS);
     //Update "uptime" table based on configuration entry in minutes.
 
@@ -1184,13 +1186,6 @@ void World::Update(uint32 diff)
     {
         METRIC_TIMER("world_update_time", METRIC_TAG("type", "Update sessions"));
         sWorldSessionMgr->UpdateSessions(diff);
-    }
-
-    /// <li> Handle weather updates when the timer has passed
-    if (_timers[WUPDATE_WEATHERS].Passed())
-    {
-        _timers[WUPDATE_WEATHERS].Reset();
-        WeatherMgr::Update(uint32(_timers[WUPDATE_WEATHERS].GetInterval()));
     }
 
     /// <li> Clean logs table
