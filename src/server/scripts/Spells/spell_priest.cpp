@@ -15,7 +15,6 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "CreatureScript.h"
 #include "GridNotifiers.h"
 #include "Player.h"
 #include "SpellAuraEffects.h"
@@ -357,38 +356,6 @@ class spell_pri_hymn_of_hope : public SpellScript
     void Register() override
     {
         OnObjectAreaTargetSelect += SpellObjectAreaTargetSelectFn(spell_pri_hymn_of_hope::FilterTargets, EFFECT_ALL, TARGET_UNIT_SRC_AREA_ALLY);
-    }
-};
-
-// 37594 - Greater Heal Refund
-class spell_pri_item_greater_heal_refund : public AuraScript
-{
-    PrepareAuraScript(spell_pri_item_greater_heal_refund);
-
-    bool Validate(SpellInfo const* /*spellInfo*/) override
-    {
-        return ValidateSpellInfo({ SPELL_PRIEST_ITEM_EFFICIENCY });
-    }
-
-    bool CheckProc(ProcEventInfo& eventInfo)
-    {
-        if (HealInfo* healInfo = eventInfo.GetHealInfo())
-            if (Unit* healTarget = healInfo->GetTarget())
-                if (eventInfo.GetHitMask() & PROC_EX_NO_OVERHEAL && healTarget->IsFullHealth())
-                    return true;
-        return false;
-    }
-
-    void HandleProc(AuraEffect const* aurEff, ProcEventInfo& /*eventInfo*/)
-    {
-        PreventDefaultAction();
-        GetTarget()->CastSpell(GetTarget(), SPELL_PRIEST_ITEM_EFFICIENCY, true, nullptr, aurEff);
-    }
-
-    void Register() override
-    {
-        DoCheckProc += AuraCheckProcFn(spell_pri_item_greater_heal_refund::CheckProc);
-        OnEffectProc += AuraEffectProcFn(spell_pri_item_greater_heal_refund::HandleProc, EFFECT_0, SPELL_AURA_PROC_TRIGGER_SPELL);
     }
 };
 
@@ -947,9 +914,8 @@ class spell_pri_mind_control : public AuraScript
         {
             if (Unit* target = GetTarget())
             {
-                uint32 duration = static_cast<uint32>(GetDuration());
-                caster->SetInCombatWith(target, duration);
-                target->SetInCombatWith(caster, duration);
+                caster->SetInCombatWith(target);
+                target->SetInCombatWith(caster);
             }
         }
     }
@@ -1448,7 +1414,6 @@ void AddSC_priest_spell_scripts()
     RegisterSpellScript(spell_pri_glyph_of_prayer_of_healing);
     RegisterSpellScript(spell_pri_guardian_spirit);
     RegisterSpellScript(spell_pri_hymn_of_hope);
-    RegisterSpellScript(spell_pri_item_greater_heal_refund);
     RegisterSpellScript(spell_pri_lightwell);
     RegisterSpellScript(spell_pri_lightwell_renew);
     RegisterSpellScript(spell_pri_mana_burn);

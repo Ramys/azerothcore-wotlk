@@ -16,7 +16,6 @@
  */
 
 #include "AreaDefines.h"
-#include "CreatureScript.h"
 #include "PetDefines.h"
 #include "Player.h"
 #include "SpellAuraEffects.h"
@@ -614,16 +613,18 @@ class spell_dk_hungering_cold : public AuraScript
 {
     PrepareAuraScript(spell_dk_hungering_cold);
 
-    void HandleProc(ProcEventInfo& eventInfo)
+    bool CheckProc(ProcEventInfo& eventInfo)
     {
-        PreventDefaultAction();
-        if (eventInfo.GetDamageInfo() && eventInfo.GetDamageInfo()->GetDamage() > 0 && (!eventInfo.GetSpellInfo() || eventInfo.GetSpellInfo()->Dispel != DISPEL_DISEASE))
-            SetDuration(0);
+        SpellInfo const* spellInfo = eventInfo.GetSpellInfo();
+        if (!spellInfo)
+            return true;
+
+        return spellInfo->Dispel != DISPEL_DISEASE;
     }
 
     void Register() override
     {
-        OnProc += AuraProcFn(spell_dk_hungering_cold::HandleProc);
+        DoCheckProc += AuraCheckProcFn(spell_dk_hungering_cold::CheckProc);
     }
 };
 
@@ -670,6 +671,20 @@ class spell_dk_blood_caked_blade : public AuraScript
 class spell_dk_dancing_rune_weapon : public AuraScript
 {
     PrepareAuraScript(spell_dk_dancing_rune_weapon);
+
+    void HandleApply(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
+    {
+        Unit* caster = GetCaster();
+        if (!caster)
+            return;
+
+        // Redirect 100% of the DRW's threat to the DK player
+        uint32 npcEntry = GetSpellInfo()->Effects[EFFECT_0].MiscValue;
+        std::list<Creature*> runeWeapons;
+        caster->GetAllMinionsByEntry(runeWeapons, npcEntry);
+        for (Creature* temp : runeWeapons)
+            temp->GetThreatMgr().RegisterRedirectThreat(GetId(), caster->GetGUID(), 100);
+    }
 
     bool CheckProc(ProcEventInfo& eventInfo)
     {
@@ -747,6 +762,7 @@ class spell_dk_dancing_rune_weapon : public AuraScript
 
     void Register() override
     {
+        AfterEffectApply += AuraEffectApplyFn(spell_dk_dancing_rune_weapon::HandleApply, EFFECT_2, SPELL_AURA_DUMMY, AURA_EFFECT_HANDLE_REAL);
         DoCheckProc += AuraCheckProcFn(spell_dk_dancing_rune_weapon::CheckProc);
         OnEffectProc += AuraEffectProcFn(spell_dk_dancing_rune_weapon::HandleProc, EFFECT_1, SPELL_AURA_DUMMY);
     }

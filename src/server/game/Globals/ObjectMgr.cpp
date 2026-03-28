@@ -38,6 +38,7 @@
 #include "MapMgr.h"
 #include "Pet.h"
 #include "PoolMgr.h"
+#include "RaceMgr.h"
 #include "ReputationMgr.h"
 #include "ScriptMgr.h"
 #include "Spell.h"
@@ -308,9 +309,10 @@ ObjectMgr::ObjectMgr():
     for (uint8 i = 0; i < MAX_CLASSES; ++i)
     {
         _playerClassInfo[i] = nullptr;
-        for (uint8 j = 0; j < MAX_RACES; ++j)
-            _playerInfo[j][i] = nullptr;
     }
+
+    // Initialize default spawn group
+    _spawnGroupDataStore[0] = {0, "Default Group", 0, SpawnGroupFlags(SPAWNGROUP_FLAG_SYSTEM)};
 }
 
 ObjectMgr::~ObjectMgr()
@@ -329,7 +331,7 @@ ObjectMgr::~ObjectMgr()
         delete _playerClassInfo[class_];
     }
 
-    for (int race = 0; race < MAX_RACES; ++race)
+    for (int race = 0; race < sRaceMgr->GetMaxRaces(); ++race)
     {
         for (int class_ = 0; class_ < MAX_CLASSES; ++class_)
         {
@@ -523,18 +525,18 @@ void ObjectMgr::LoadCreatureTemplates()
 
 //                                                        0      1                   2                   3                   4            5            6     7        8
     QueryResult result = WorldDatabase.Query("SELECT entry, difficulty_entry_1, difficulty_entry_2, difficulty_entry_3, KillCredit1, KillCredit2, name, subname, IconName, "
-//                        9               10        11        12   13       14       15          16         17          18            19               20     21      22
-                         "gossip_menu_id, minlevel, maxlevel, exp, faction, npcflag, speed_walk, speed_run, speed_swim, speed_flight, detection_range, scale, `rank`, dmgschool, "
-//                        23              24              25               26            27             28          29          30           31            32
+//                        9               10        11        12   13       14       15          16         17          18            19               20      21
+                         "gossip_menu_id, minlevel, maxlevel, exp, faction, npcflag, speed_walk, speed_run, speed_swim, speed_flight, detection_range, `rank`, dmgschool, "
+//                        22              23              24               25            26             27          28          29           30            31
                          "DamageModifier, BaseAttackTime, RangeAttackTime, BaseVariance, RangeVariance, unit_class, unit_flags, unit_flags2, dynamicflags, family, "
-//                        33    34          35      36              37
+//                        32    33          34      35              36
                          "type, type_flags, lootid, pickpocketloot, skinloot, "
-//                        38              39         40       41       42      43            44          45        46          47
+//                        37              38         39       40       41      42            43          44        45          46
                          "PetSpellDataId, VehicleId, mingold, maxgold, AIName, MovementType, ctm.Ground, ctm.Swim, ctm.Flight, ctm.Rooted, "
-//                        48         49          50                         51           52              53            54             55                  56            57          58           59
-                         "ctm.Chase, ctm.Random, ctm.InteractionPauseTimer, HoverHeight, HealthModifier, ManaModifier, ArmorModifier, ExperienceModifier, RacialLeader, movementId, RegenHealth, mechanic_immune_mask, "
-//                        60                        61           62
-                         "spell_school_immune_mask, flags_extra, ScriptName "
+//                        47         48          49                         50           51              52            53             54                  55            56          57
+                         "ctm.Chase, ctm.Random, ctm.InteractionPauseTimer, HoverHeight, HealthModifier, ManaModifier, ArmorModifier, ExperienceModifier, RacialLeader, movementId, RegenHealth, "
+//                       58                     59           60
+                         "CreatureImmunitiesId, flags_extra, ScriptName "
                          "FROM creature_template ct LEFT JOIN creature_template_movement ctm ON ct.entry = ctm.CreatureId ORDER BY entry DESC;");
 
     if (!result)
@@ -620,24 +622,23 @@ void ObjectMgr::LoadCreatureTemplate(Field* fields, bool triggerHook)
     creatureTemplate.speed_swim       = fields[17].Get<float>();
     creatureTemplate.speed_flight     = fields[18].Get<float>();
     creatureTemplate.detection_range  = fields[19].Get<float>();
-    creatureTemplate.scale            = fields[20].Get<float>();
-    creatureTemplate.rank             = uint32(fields[21].Get<uint8>());
-    creatureTemplate.dmgschool        = uint32(fields[22].Get<int8>());
-    creatureTemplate.DamageModifier   = fields[23].Get<float>();
-    creatureTemplate.BaseAttackTime   = fields[24].Get<uint32>();
-    creatureTemplate.RangeAttackTime  = fields[25].Get<uint32>();
-    creatureTemplate.BaseVariance     = fields[26].Get<float>();
-    creatureTemplate.RangeVariance    = fields[27].Get<float>();
-    creatureTemplate.unit_class       = uint32(fields[28].Get<uint8>());
-    creatureTemplate.unit_flags       = fields[29].Get<uint32>();
-    creatureTemplate.unit_flags2      = fields[30].Get<uint32>();
-    creatureTemplate.dynamicflags     = fields[31].Get<uint32>();
-    creatureTemplate.family           = uint32(fields[32].Get<uint8>());
-    creatureTemplate.type             = uint32(fields[33].Get<uint8>());
-    creatureTemplate.type_flags       = fields[34].Get<uint32>();
-    creatureTemplate.lootid           = fields[35].Get<uint32>();
-    creatureTemplate.pickpocketLootId = fields[36].Get<uint32>();
-    creatureTemplate.SkinLootId       = fields[37].Get<uint32>();
+    creatureTemplate.rank             = uint32(fields[20].Get<uint8>());
+    creatureTemplate.dmgschool        = uint32(fields[21].Get<int8>());
+    creatureTemplate.DamageModifier   = fields[22].Get<float>();
+    creatureTemplate.BaseAttackTime   = fields[23].Get<uint32>();
+    creatureTemplate.RangeAttackTime  = fields[24].Get<uint32>();
+    creatureTemplate.BaseVariance     = fields[25].Get<float>();
+    creatureTemplate.RangeVariance    = fields[26].Get<float>();
+    creatureTemplate.unit_class       = uint32(fields[27].Get<uint8>());
+    creatureTemplate.unit_flags       = fields[28].Get<uint32>();
+    creatureTemplate.unit_flags2      = fields[29].Get<uint32>();
+    creatureTemplate.dynamicflags     = fields[30].Get<uint32>();
+    creatureTemplate.family           = uint32(fields[31].Get<uint8>());
+    creatureTemplate.type             = uint32(fields[32].Get<uint8>());
+    creatureTemplate.type_flags       = fields[33].Get<uint32>();
+    creatureTemplate.lootid           = fields[34].Get<uint32>();
+    creatureTemplate.pickpocketLootId = fields[35].Get<uint32>();
+    creatureTemplate.SkinLootId       = fields[36].Get<uint32>();
 
     for (uint8 i = SPELL_SCHOOL_HOLY; i < MAX_SPELL_SCHOOL; ++i)
     {
@@ -649,49 +650,56 @@ void ObjectMgr::LoadCreatureTemplate(Field* fields, bool triggerHook)
         creatureTemplate.spells[i] = 0;
     }
 
-    creatureTemplate.PetSpellDataId = fields[38].Get<uint32>();
-    creatureTemplate.VehicleId      = fields[39].Get<uint32>();
-    creatureTemplate.mingold        = fields[40].Get<uint32>();
-    creatureTemplate.maxgold        = fields[41].Get<uint32>();
-    creatureTemplate.AIName         = fields[42].Get<std::string>();
-    creatureTemplate.MovementType   = uint32(fields[43].Get<uint8>());
-    if (!fields[44].IsNull())
+    creatureTemplate.PetSpellDataId = fields[37].Get<uint32>();
+    creatureTemplate.VehicleId      = fields[38].Get<uint32>();
+    creatureTemplate.mingold        = fields[39].Get<uint32>();
+    creatureTemplate.maxgold        = fields[40].Get<uint32>();
+    creatureTemplate.AIName         = fields[41].Get<std::string>();
+    creatureTemplate.MovementType   = uint32(fields[42].Get<uint8>());
+    if (!fields[43].IsNull())
     {
-        creatureTemplate.Movement.Ground = static_cast<CreatureGroundMovementType>(fields[44].Get<uint8>());
+        creatureTemplate.Movement.Ground = static_cast<CreatureGroundMovementType>(fields[43].Get<uint8>());
     }
 
-    creatureTemplate.Movement.Swim = fields[45].Get<bool>();
-    if (!fields[46].IsNull())
+    creatureTemplate.Movement.Swim = fields[44].Get<bool>();
+    if (!fields[45].IsNull())
     {
-        creatureTemplate.Movement.Flight = static_cast<CreatureFlightMovementType>(fields[46].Get<uint8>());
+        creatureTemplate.Movement.Flight = static_cast<CreatureFlightMovementType>(fields[45].Get<uint8>());
     }
 
-    creatureTemplate.Movement.Rooted = fields[47].Get<bool>();
+    creatureTemplate.Movement.Rooted = fields[46].Get<bool>();
+    if (!fields[47].IsNull())
+    {
+        creatureTemplate.Movement.Chase = static_cast<CreatureChaseMovementType>(fields[47].Get<uint8>());
+    }
     if (!fields[48].IsNull())
     {
-        creatureTemplate.Movement.Chase = static_cast<CreatureChaseMovementType>(fields[48].Get<uint8>());
+        creatureTemplate.Movement.Random = static_cast<CreatureRandomMovementType>(fields[48].Get<uint8>());
     }
     if (!fields[49].IsNull())
     {
-        creatureTemplate.Movement.Random = static_cast<CreatureRandomMovementType>(fields[49].Get<uint8>());
-    }
-    if (!fields[50].IsNull())
-    {
-        creatureTemplate.Movement.InteractionPauseTimer = fields[50].Get<uint32>();
+        creatureTemplate.Movement.InteractionPauseTimer = fields[49].Get<uint32>();
     }
 
-    creatureTemplate.HoverHeight           = fields[51].Get<float>();
-    creatureTemplate.ModHealth             = fields[52].Get<float>();
-    creatureTemplate.ModMana               = fields[53].Get<float>();
-    creatureTemplate.ModArmor              = fields[54].Get<float>();
-    creatureTemplate.ModExperience         = fields[55].Get<float>();
-    creatureTemplate.RacialLeader          = fields[56].Get<bool>();
-    creatureTemplate.movementId            = fields[57].Get<uint32>();
-    creatureTemplate.RegenHealth           = fields[58].Get<bool>();
-    creatureTemplate.MechanicImmuneMask    = fields[59].Get<uint32>();
-    creatureTemplate.SpellSchoolImmuneMask = fields[60].Get<uint8>();
-    creatureTemplate.flags_extra           = fields[61].Get<uint32>();
-    creatureTemplate.ScriptID              = GetScriptId(fields[62].Get<std::string>());
+    creatureTemplate.HoverHeight           = fields[50].Get<float>();
+    creatureTemplate.ModHealth             = fields[51].Get<float>();
+    creatureTemplate.ModMana               = fields[52].Get<float>();
+    creatureTemplate.ModArmor              = fields[53].Get<float>();
+    creatureTemplate.ModExperience         = fields[54].Get<float>();
+    creatureTemplate.RacialLeader          = fields[55].Get<bool>();
+    creatureTemplate.movementId            = fields[56].Get<uint32>();
+    creatureTemplate.RegenHealth           = fields[57].Get<bool>();
+    creatureTemplate.CreatureImmunitiesId  = fields[58].Get<int32>();
+    creatureTemplate.flags_extra           = fields[59].Get<uint32>();
+    creatureTemplate.ScriptID              = GetScriptId(fields[60].Get<std::string>());
+
+    // Warn about deprecated immunity flags that should be moved to `creature_immunities` table
+    if (creatureTemplate.flags_extra & CREATURE_FLAG_EXTRA_NO_TAUNT)
+        LOG_WARN("server.loading", "Creature (Entry: {}) has deprecated flags_extra bit NO_TAUNT (0x100) set. This will be migrated to the `creature_immunities` table in a future update.", entry);
+    if (creatureTemplate.flags_extra & CREATURE_FLAG_EXTRA_AVOID_AOE)
+        LOG_WARN("server.loading", "Creature (Entry: {}) has deprecated flags_extra bit AVOID_AOE (0x400000) set. This will be migrated to the `creature_immunities` table in a future update.", entry);
+    if (creatureTemplate.flags_extra & CREATURE_FLAG_EXTRA_IMMUNITY_KNOCKBACK)
+        LOG_WARN("server.loading", "Creature (Entry: {}) has deprecated flags_extra bit IMMUNITY_KNOCKBACK (0x40000000) set. This will be migrated to the `creature_immunities` table in a future update.", entry);
 
     // useful if the creature template load is being triggered from outside this class
     if (triggerHook)
@@ -1111,8 +1119,8 @@ void ObjectMgr::CheckCreatureTemplate(CreatureTemplate const* cInfo)
 
     if (!cInfo->unit_class || ((1 << (cInfo->unit_class - 1)) & CLASSMASK_ALL_CREATURES) == 0)
     {
-        LOG_ERROR("sql.sql", "Creature (Entry: {}) has invalid unit_class ({}) in creature_template. Set to 1 (UNIT_CLASS_WARRIOR).", cInfo->Entry, cInfo->unit_class);
-        const_cast<CreatureTemplate*>(cInfo)->unit_class = UNIT_CLASS_WARRIOR;
+        LOG_ERROR("sql.sql", "Creature (Entry: {}) has invalid unit_class ({}) in creature_template. Set to 1 (CLASS_WARRIOR).", cInfo->Entry, cInfo->unit_class);
+        const_cast<CreatureTemplate*>(cInfo)->unit_class = CLASS_WARRIOR;
     }
 
     if (cInfo->dmgschool >= MAX_SPELL_SCHOOL)
@@ -2395,6 +2403,7 @@ void ObjectMgr::LoadCreatures()
         data.unit_flags         = fields[21].Get<uint32>();
         data.dynamicflags       = fields[22].Get<uint32>();
         data.ScriptId           = GetScriptId(fields[23].Get<std::string>());
+        data.spawnGroupId       = 0;
 
         if (!data.ScriptId)
             data.ScriptId = cInfo->ScriptID;
@@ -2573,6 +2582,7 @@ CreatureData const* ObjectMgr::LoadCreatureDataFromDB(ObjectGuid::LowType spawnI
     creatureData.unit_flags       = fields[19].Get<uint32>();
     creatureData.dynamicflags     = fields[20].Get<uint32>();
     creatureData.ScriptId         = GetScriptId(fields[21].Get<std::string>());
+    creatureData.spawnGroupId     = 0;
 
     if (!creatureData.ScriptId)
         creatureData.ScriptId = cInfo->ScriptID;
@@ -2755,6 +2765,7 @@ ObjectGuid::LowType ObjectMgr::AddGOData(uint32 entry, uint32 mapId, float x, fl
     data.phaseMask      = PHASEMASK_NORMAL;
     data.artKit         = goinfo->type == GAMEOBJECT_TYPE_CAPTURE_POINT ? 21 : 0;
     data.dbData = false;
+    data.spawnGroupId   = 0;
 
     AddGameobjectToGrid(spawnId, &data);
 
@@ -2910,6 +2921,7 @@ void ObjectMgr::LoadGameobjects()
         data.rotation.w     = fields[10].Get<float>();
         data.spawntimesecs  = fields[11].Get<int32>();
         data.ScriptId       = GetScriptId(fields[18].Get<std::string>());
+        data.spawnGroupId   = 0;
         if (!data.ScriptId)
             data.ScriptId = gInfo->ScriptId;
 
@@ -3492,7 +3504,7 @@ void ObjectMgr::LoadItemTemplates()
                 if (!(itemTemplate.AllowableClass & CLASSMASK_ALL_PLAYABLE))
                     LOG_ERROR("sql.sql", "Item (Entry: {}) does not have any playable classes ({}) in `AllowableClass` and can't be equipped or used.", entry, itemTemplate.AllowableClass);
 
-                if (!(itemTemplate.AllowableRace & RACEMASK_ALL_PLAYABLE))
+                if (!(itemTemplate.AllowableRace & sRaceMgr->GetPlayableRaceMask()))
                     LOG_ERROR("sql.sql", "Item (Entry: {}) does not have any playable races ({}) in `AllowableRace` and can't be equipped or used.", entry, itemTemplate.AllowableRace);
             }
         }
@@ -4252,6 +4264,14 @@ void ObjectMgr::LoadPlayerInfo()
 {
     // Load playercreate
     {
+        if (_playerInfo.empty() || _playerInfo.size() != sRaceMgr->GetMaxRaces())
+        {
+            _playerInfo.clear();
+            _playerInfo.resize(sRaceMgr->GetMaxRaces());
+            for (auto& classVec : _playerInfo)
+                classVec.resize(MAX_CLASSES, nullptr);
+        }
+
         uint32 oldMSTime = getMSTime();
         //                                                0     1      2    3        4          5           6
         QueryResult result = WorldDatabase.Query("SELECT race, class, map, zone, position_x, position_y, position_z, orientation FROM playercreateinfo");
@@ -4279,7 +4299,7 @@ void ObjectMgr::LoadPlayerInfo()
                 float  positionZ     = fields[6].Get<float>();
                 float  orientation   = fields[7].Get<float>();
 
-                if (current_race >= MAX_RACES)
+                if (current_race >= sRaceMgr->GetMaxRaces())
                 {
                     LOG_ERROR("sql.sql", "Wrong race {} in `playercreateinfo` table, ignoring.", current_race);
                     continue;
@@ -4357,7 +4377,7 @@ void ObjectMgr::LoadPlayerInfo()
                 Field* fields = result->Fetch();
 
                 uint32 current_race = fields[0].Get<uint8>();
-                if (current_race >= MAX_RACES)
+                if (current_race >= sRaceMgr->GetMaxRaces())
                 {
                     LOG_ERROR("sql.sql", "Wrong race {} in `playercreateinfo_item` table, ignoring.", current_race);
                     continue;
@@ -4389,7 +4409,7 @@ void ObjectMgr::LoadPlayerInfo()
                 if (!current_race || !current_class)
                 {
                     uint32 min_race = current_race ? current_race : 1;
-                    uint32 max_race = current_race ? current_race + 1 : MAX_RACES;
+                    uint32 max_race = current_race ? current_race + 1 : sRaceMgr->GetMaxRaces();
                     uint32 min_class = current_class ? current_class : 1;
                     uint32 max_class = current_class ? current_class + 1 : MAX_CLASSES;
                     for (uint32 r = min_race; r < max_race; ++r)
@@ -4437,7 +4457,7 @@ void ObjectMgr::LoadPlayerInfo()
                     continue;
                 }
 
-                if (raceMask != 0 && !(raceMask & RACEMASK_ALL_PLAYABLE))
+                if (raceMask != 0 && !(raceMask & sRaceMgr->GetPlayableRaceMask()))
                 {
                     LOG_ERROR("sql.sql", "Wrong race mask {} in `playercreateinfo_skills` table, ignoring.", raceMask);
                     continue;
@@ -4455,7 +4475,7 @@ void ObjectMgr::LoadPlayerInfo()
                     continue;
                 }
 
-                for (uint32 raceIndex = RACE_HUMAN; raceIndex < MAX_RACES; ++raceIndex)
+                for (uint32 raceIndex = RACE_HUMAN; raceIndex < sRaceMgr->GetMaxRaces(); ++raceIndex)
                 {
                     if (raceMask == 0 || ((1 << (raceIndex - 1)) & raceMask))
                     {
@@ -4504,7 +4524,7 @@ void ObjectMgr::LoadPlayerInfo()
                 uint32 classMask = fields[1].Get<uint32>();
                 uint32 spellId = fields[2].Get<uint32>();
 
-                if (raceMask != 0 && !(raceMask & RACEMASK_ALL_PLAYABLE))
+                if (raceMask != 0 && !(raceMask & sRaceMgr->GetPlayableRaceMask()))
                 {
                     LOG_ERROR("sql.sql", "Wrong race mask {} in `playercreateinfo_spell_custom` table, ignoring.", raceMask);
                     continue;
@@ -4516,7 +4536,7 @@ void ObjectMgr::LoadPlayerInfo()
                     continue;
                 }
 
-                for (uint32 raceIndex = RACE_HUMAN; raceIndex < MAX_RACES; ++raceIndex)
+                for (uint32 raceIndex = RACE_HUMAN; raceIndex < sRaceMgr->GetMaxRaces(); ++raceIndex)
                 {
                     if (raceMask == 0 || ((1 << (raceIndex - 1)) & raceMask))
                     {
@@ -4562,7 +4582,7 @@ void ObjectMgr::LoadPlayerInfo()
                 uint32 classMask = fields[1].Get<uint32>();
                 uint32 spellId   = fields[2].Get<uint32>();
 
-                if (raceMask != 0 && !(raceMask & RACEMASK_ALL_PLAYABLE))
+                if (raceMask != 0 && !(raceMask & sRaceMgr->GetPlayableRaceMask()))
                 {
                     LOG_ERROR("sql.sql", "Wrong race mask {} in `playercreateinfo_cast_spell` table, ignoring.", raceMask);
                     continue;
@@ -4574,7 +4594,7 @@ void ObjectMgr::LoadPlayerInfo()
                     continue;
                 }
 
-                for (uint32 raceIndex = RACE_HUMAN; raceIndex < MAX_RACES; ++raceIndex)
+                for (uint32 raceIndex = RACE_HUMAN; raceIndex < sRaceMgr->GetMaxRaces(); ++raceIndex)
                 {
                     if (raceMask == 0 || ((1 << (raceIndex - 1)) & raceMask))
                     {
@@ -4620,7 +4640,7 @@ void ObjectMgr::LoadPlayerInfo()
                 Field* fields = result->Fetch();
 
                 uint32 current_race = fields[0].Get<uint8>();
-                if (current_race >= MAX_RACES)
+                if (current_race >= sRaceMgr->GetMaxRaces())
                 {
                     LOG_ERROR("sql.sql", "Wrong race {} in `playercreateinfo_action` table, ignoring.", current_race);
                     continue;
@@ -4652,7 +4672,9 @@ void ObjectMgr::LoadPlayerInfo()
             int16 StatModifier[MAX_STATS];
         };
 
-        std::array<RaceStats, MAX_RACES> raceStatModifiers;
+        std::vector<RaceStats> raceStatModifiers;
+
+        raceStatModifiers.resize(sRaceMgr->GetMaxRaces());
 
         uint32 oldMSTime = getMSTime();
 
@@ -4671,7 +4693,7 @@ void ObjectMgr::LoadPlayerInfo()
             Field* fields = raceStatsResult->Fetch();
 
             uint32 current_race = fields[0].Get<uint8>();
-            if (current_race >= MAX_RACES)
+            if (current_race >= sRaceMgr->GetMaxRaces())
             {
                 LOG_ERROR("sql.sql", "Wrong race {} in `player_race_stats` table, ignoring.", current_race);
                 continue;
@@ -4745,7 +4767,7 @@ void ObjectMgr::LoadPlayerInfo()
         } while (result->NextRow());
 
         // Fill gaps and check integrity
-        for (int race = 0; race < MAX_RACES; ++race)
+        for (int race = RACE_HUMAN; race < sRaceMgr->GetMaxRaces(); ++race)
         {
             // skip non existed races
             if (!sChrRacesStore.LookupEntry(race))
@@ -4884,7 +4906,7 @@ void ObjectMgr::GetPlayerClassLevelInfo(uint32 class_, uint8 level, PlayerClassL
 
 void ObjectMgr::GetPlayerLevelInfo(uint32 race, uint32 class_, uint8 level, PlayerLevelInfo* info) const
 {
-    if (level < 1 || race >= MAX_RACES || class_ >= MAX_CLASSES)
+    if (level < 1 || race >= sRaceMgr->GetMaxRaces() || class_ >= MAX_CLASSES)
         return;
 
     PlayerInfo const* pInfo = _playerInfo[race][class_];
@@ -5253,10 +5275,10 @@ void ObjectMgr::LoadQuests()
                 qinfo->RequiredClasses = 0;
             }
         }
-        // AllowableRaces, can be 0/RACEMASK_ALL_PLAYABLE to allow any race
+        // AllowableRaces, can be 0/PlayableRaceMask to allow any race
         if (qinfo->AllowableRaces)
         {
-            if (!(qinfo->AllowableRaces & RACEMASK_ALL_PLAYABLE))
+            if (!(qinfo->AllowableRaces & sRaceMgr->GetPlayableRaceMask()))
             {
                 LOG_ERROR("sql.sql", "Quest {} does not contain any playable races in `AllowableRaces` ({}), value set to 0 (all races).", qinfo->GetQuestId(), qinfo->AllowableRaces);
                 qinfo->AllowableRaces = 0;
@@ -7151,6 +7173,11 @@ void ObjectMgr::LoadAreaTriggerScripts()
     LOG_INFO("server.loading", " ");
 }
 
+uint32 ObjectMgr::GetNearestTaxiNode(WorldLocation const& loc, uint32 teamId)
+{
+    return GetNearestTaxiNode(loc.GetPositionX(), loc.GetPositionY(), loc.GetPositionZ(), loc.GetMapId(), teamId);
+}
+
 uint32 ObjectMgr::GetNearestTaxiNode(float x, float y, float z, uint32 mapid, uint32 teamId)
 {
     bool found = false;
@@ -8663,6 +8690,19 @@ void ObjectMgr::DeleteGOData(ObjectGuid::LowType guid)
     _gameObjectDataStore.erase(guid);
 }
 
+SpawnData const* ObjectMgr::GetSpawnData(SpawnObjectType type, ObjectGuid::LowType spawnId) const
+{
+    switch (type)
+    {
+        case SPAWN_TYPE_CREATURE:
+            return GetCreatureData(spawnId);
+        case SPAWN_TYPE_GAMEOBJECT:
+            return GetGameObjectData(spawnId);
+        default:
+            return nullptr;
+    }
+}
+
 void ObjectMgr::LoadQuestRelationsHelper(QuestRelations& map, std::string const& table, bool starter, bool go)
 {
     uint32 oldMSTime = getMSTime();
@@ -9677,7 +9717,7 @@ void ObjectMgr::LoadMailLevelRewards()
             continue;
         }
 
-        if (!(raceMask & RACEMASK_ALL_PLAYABLE))
+        if (!(raceMask & sRaceMgr->GetPlayableRaceMask()))
         {
             LOG_ERROR("sql.sql", "Table `mail_level_reward` have raceMask ({}) for level {} that not include any player races, ignoring.", raceMask, level);
             continue;
@@ -9710,6 +9750,7 @@ void ObjectMgr::LoadTrainers()
 
     // For reload case
     _trainers.clear();
+    _classTrainers.clear();
 
     std::unordered_map<int32, std::vector<Trainer::Spell>> spellsByTrainer;
     if (QueryResult trainerSpellsResult = WorldDatabase.Query("SELECT TrainerId, SpellId, MoneyCost, ReqSkillLine, ReqSkillRank, ReqAbility1, ReqAbility2, ReqAbility3, ReqLevel FROM trainer_spell"))
@@ -9786,7 +9827,18 @@ void ObjectMgr::LoadTrainers()
                 spellsByTrainer.erase(spellsItr);
             }
 
-            _trainers.emplace(std::piecewise_construct, std::forward_as_tuple(trainerId), std::forward_as_tuple(trainerId, trainerType, requirement, std::move(greeting), std::move(spells)));
+            auto [it, isNew] = _trainers.emplace(std::piecewise_construct, std::forward_as_tuple(trainerId), std::forward_as_tuple(trainerId, trainerType, requirement, std::move(greeting), std::move(spells)));
+            ASSERT(isNew);
+            if (trainerType == Trainer::Type::Class)
+            {
+                if (!requirement || requirement >= MAX_CLASSES)
+                    LOG_ERROR("sql.sql", "Table `trainer` has invalid class requirement for trainer {}, ignoring");
+                else
+                {
+                    uint8 classId = static_cast<uint8>(requirement);
+                    _classTrainers[classId].push_back(&it->second);
+                }
+            }
         } while (trainersResult->NextRow());
     }
 
@@ -10422,6 +10474,11 @@ CreatureBaseStats const* ObjectMgr::GetCreatureBaseStats(uint8 level, uint8 unit
             BaseMana = 0;
             AttackPower = 0;
             RangedAttackPower = 0;
+            Strength = 0;
+            Agility = 0;
+            Stamina = 0;
+            Intellect = 0;
+            Spirit = 0;
         }
     };
     static const DefaultCreatureBaseStats defStats;
@@ -10432,7 +10489,7 @@ void ObjectMgr::LoadCreatureClassLevelStats()
 {
     uint32 oldMSTime = getMSTime();
 
-    QueryResult result = WorldDatabase.Query("SELECT level, class, basehp0, basehp1, basehp2, basemana, basearmor, attackpower, rangedattackpower, damage_base, damage_exp1, damage_exp2 FROM creature_classlevelstats");
+    QueryResult result = WorldDatabase.Query("SELECT level, class, basehp0, basehp1, basehp2, basemana, basearmor, attackpower, rangedattackpower, damage_base, damage_exp1, damage_exp2, Strength, Agility, Stamina, Intellect, Spirit FROM creature_classlevelstats");
 
     if (!result)
     {
@@ -10491,6 +10548,18 @@ void ObjectMgr::LoadCreatureClassLevelStats()
 
         stats.AttackPower = fields[7].Get<uint32>();
         stats.RangedAttackPower = fields[8].Get<uint32>();
+
+        stats.Strength = fields[12].Get<uint32>();
+        stats.Agility = fields[13].Get<uint32>();
+        stats.Stamina = fields[14].Get<uint32>();
+        stats.Intellect = fields[15].Get<uint32>();
+        stats.Spirit = fields[16].Get<uint32>();
+
+        if (!stats.Strength || !stats.Agility || !stats.Stamina || !stats.Intellect || !stats.Spirit)
+        {
+            // Once these attributes are implemented, this should probably be uncommented.
+            // LOG_WARN("server.loading", "Creature base attributes for class {}, level {} are missing!", Class, Level);
+        }
 
         _creatureBaseStatsStore[MAKE_PAIR16(Level, Class)] = stats;
 
@@ -10774,7 +10843,7 @@ VehicleAccessoryList const* ObjectMgr::GetVehicleAccessoryList(Vehicle* veh) con
 
 PlayerInfo const* ObjectMgr::GetPlayerInfo(uint32 race, uint32 class_) const
 {
-    if (race >= MAX_RACES)
+    if (race >= sRaceMgr->GetMaxRaces())
         return nullptr;
     if (class_ >= MAX_CLASSES)
         return nullptr;

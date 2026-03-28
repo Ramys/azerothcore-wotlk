@@ -43,6 +43,7 @@
 
 class AuctionHouseObject;
 class AuraScript;
+class Battlefield;
 class Battleground;
 class BattlegroundMap;
 class BattlegroundQueue;
@@ -307,6 +308,7 @@ public: /* PlayerScript */
     void OnPlayerLevelChanged(Player* player, uint8 oldLevel);
     void OnPlayerFreeTalentPointsChanged(Player* player, uint32 newPoints);
     void OnPlayerTalentsReset(Player* player, bool noCost);
+    bool OnPlayerCanLearnTalent(Player* player, TalentEntry const* talent, uint32 rank);
     void OnPlayerAfterSpecSlotChanged(Player* player, uint8 newSlot);
     void OnPlayerMoneyChanged(Player* player, int32& amount);
     void OnPlayerBeforeLootMoney(Player* player, Loot* loot);
@@ -576,6 +578,13 @@ public: /* AllGameobjectScript */
 public: /* AllMapScript */
     void OnBeforeCreateInstanceScript(InstanceMap* instanceMap, InstanceScript** instanceData, bool load, std::string data, uint32 completedEncounterMask);
     void OnDestroyInstance(MapInstanced* mapInstanced, Map* map);
+
+public: /* BattlefieldScript */
+    void OnBattlefieldPlayerEnterZone(Battlefield* bf, Player* player);
+    void OnBattlefieldPlayerLeaveZone(Battlefield* bf, Player* player);
+    void OnBattlefieldPlayerJoinWar(Battlefield* bf, Player* player);
+    void OnBattlefieldPlayerLeaveWar(Battlefield* bf, Player* player);
+    void OnBattlefieldBeforeInvitePlayerToWar(Battlefield* bf, Player* player);
 
 public: /* BGScript */
     void OnBattlegroundStart(Battleground* bg);
