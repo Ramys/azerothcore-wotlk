@@ -46,7 +46,7 @@ private:
     void LoadMotdLocale();
 
     // Create a worldpacket for a given motd localization
-    WorldPacket CreateWorldPacket(std::string motd);
+    WorldPacket CreateWorldPacket(std::string const& motd);
 };
 
 #define sMotdMgr MotdMgr::instance()
