@@ -726,20 +726,22 @@ public:
                             c->AI()->Talk(SAY_STAGE_0_04);
 
                         events.RescheduleEvent(EVENT_OPEN_GATE, 3s);
-                        events.RescheduleEvent(EVENT_SUMMON_ACIDMAW_AND_DREADSCALE, 4s);
+                        events.RescheduleEvent(EVENT_SUMMON_DREADSCALE, 4s);
                         break;
                     }
-                case EVENT_SUMMON_ACIDMAW_AND_DREADSCALE:
+                case EVENT_SUMMON_DREADSCALE:
                     {
                         if (Creature* c = instance->GetCreature(NPC_TirionGUID))
-                        {
                             if (Creature* dreadscale = c->SummonCreature(NPC_DREADSCALE, Locs[LOC_BEHIND_GATE].GetPositionX(), Locs[LOC_BEHIND_GATE].GetPositionY(), Locs[LOC_BEHIND_GATE].GetPositionZ(), Locs[LOC_BEHIND_GATE].GetOrientation(), TEMPSUMMON_MANUAL_DESPAWN))
                                 dreadscale->GetMotionMaster()->MovePoint(0, Locs[LOC_BEHIND_GATE].GetPositionX(), Locs[LOC_BEHIND_GATE].GetPositionY() - 25.0f, Locs[LOC_BEHIND_GATE].GetPositionZ());
-                            if (Creature* acidmaw = c->SummonCreature(NPC_ACIDMAW, Locs[LOC_ACIDMAW].GetPositionX(), Locs[LOC_ACIDMAW].GetPositionY(), Locs[LOC_ACIDMAW].GetPositionZ(), Locs[LOC_ACIDMAW].GetOrientation(), TEMPSUMMON_MANUAL_DESPAWN))
-                                acidmaw->AddAura(53421, acidmaw);
-                        }
 
                         events.RescheduleEvent(EVENT_SCENE_005_2, 4s);
+                        break;
+                    }
+                case EVENT_SUMMON_ACIDMAW:
+                    {
+                        if (Creature* c = instance->GetCreature(NPC_TirionGUID))
+                            c->SummonCreature(NPC_ACIDMAW, Locs[LOC_ACIDMAW].GetPositionX(), Locs[LOC_ACIDMAW].GetPositionY(), Locs[LOC_ACIDMAW].GetPositionZ(), Locs[LOC_ACIDMAW].GetOrientation(), TEMPSUMMON_MANUAL_DESPAWN);
                         break;
                     }
 
@@ -748,7 +750,8 @@ public:
                         if (Creature* dreadscale = instance->GetCreature(NPC_DreadscaleGUID))
                             dreadscale->GetMotionMaster()->MovePoint(0, Locs[LOC_DREADSCALE].GetPositionX(), Locs[LOC_DREADSCALE].GetPositionY(), Locs[LOC_DREADSCALE].GetPositionZ());
 
-                        events.RescheduleEvent(EVENT_ACIDMAW_AND_DREADSCALE_ATTACK, 7s);
+                        events.RescheduleEvent(EVENT_SUMMON_ACIDMAW, 4300ms);
+                        events.RescheduleEvent(EVENT_ACIDMAW_AND_DREADSCALE_ATTACK, 6700ms);
                         break;
                     }
                 case EVENT_ACIDMAW_AND_DREADSCALE_ATTACK:
@@ -772,8 +775,6 @@ public:
                             c->RemoveUnitMovementFlag(MOVEMENTFLAG_WALKING);
                             if (Unit* target = c->SelectNearestTarget(200.0f))
                             {
-                                c->RemoveAura(53421);
-                                c->CastSpell(c, 66947, false);
                                 c->AI()->AttackStart(target);
                                 c->AI()->DoZoneInCombat();
                             }
@@ -852,7 +853,21 @@ public:
                         if (Creature* c = instance->GetCreature(NPC_FizzlebangGUID))
                             c->AI()->Talk(SAY_STAGE_1_02);
 
+                        events.RescheduleEvent(EVENT_WILFRED_TALK_EMOTE, 3s);
+                        events.RescheduleEvent(EVENT_WILFRED_STOP_TALK_EMOTE, 10400ms);
                         events.RescheduleEvent(EVENT_SCENE_103, 11s);
+                        break;
+                    }
+                case EVENT_WILFRED_TALK_EMOTE:
+                    {
+                        if (Creature* c = instance->GetCreature(NPC_FizzlebangGUID))
+                            c->SetEmoteState(EMOTE_STATE_TALK);
+                        break;
+                    }
+                case EVENT_WILFRED_STOP_TALK_EMOTE:
+                    {
+                        if (Creature* c = instance->GetCreature(NPC_FizzlebangGUID))
+                            c->SetEmoteState(EMOTE_ONESHOT_NONE);
                         break;
                     }
                 case EVENT_SCENE_103:
@@ -860,29 +875,14 @@ public:
                         if (Creature* c = instance->GetCreature(NPC_FizzlebangGUID))
                         {
                             c->AI()->Talk(SAY_STAGE_1_03);
-                            c->HandleEmoteCommand(EMOTE_STATE_SPELL_PRECAST);
                             if (Creature* trigger = c->SummonCreature(NPC_PURPLE_GROUND, Locs[LOC_CENTER].GetPositionX(), Locs[LOC_CENTER].GetPositionY(), Locs[LOC_CENTER].GetPositionZ(), Locs[LOC_CENTER].GetOrientation(), TEMPSUMMON_MANUAL_DESPAWN))
                                 NPC_PurpleGroundGUID = trigger->GetGUID();
-                        }
-
-                        events.RescheduleEvent(EVENT_SCENE_104, 5s);
-                        break;
-                    }
-                case EVENT_SCENE_104:
-                    {
-                        if (Creature* c = instance->GetCreature(NPC_FizzlebangGUID))
-                        {
-                            if (Creature* portal = c->SummonCreature(NPC_WORLD_TRIGGER, Locs[LOC_CENTER].GetPositionX(), Locs[LOC_CENTER].GetPositionY(), Locs[LOC_CENTER].GetPositionZ(), Locs[LOC_CENTER].GetOrientation(), TEMPSUMMON_MANUAL_DESPAWN))
-                            {
+                            if (Creature* portal = c->SummonCreature(NPC_OPEN_PORTAL_TARGET, Locs[LOC_OPEN_PORTAL_TARGET], TEMPSUMMON_MANUAL_DESPAWN))
                                 NPC_PortalGUID = portal->GetGUID();
-                                portal->SetObjectScale(3.0f);
-                                portal->SetReactState(REACT_PASSIVE);
-                                portal->CastSpell(portal, SPELL_WILFRED_PORTAL, true);
-                            }
-                            c->HandleEmoteCommand(EMOTE_STATE_SPELL_PRECAST);
+                            c->CastSpell(c, SPELL_OPEN_PORTAL);
                         }
 
-                        events.RescheduleEvent(EVENT_SUMMON_JARAXXUS, 5s);
+                        events.RescheduleEvent(EVENT_SUMMON_JARAXXUS, 11s);
                         break;
                     }
                 case EVENT_SUMMON_JARAXXUS:
@@ -891,10 +891,11 @@ public:
                         {
                             if (Creature* jaraxxus = c->SummonCreature(NPC_JARAXXUS, Locs[LOC_CENTER].GetPositionX(), Locs[LOC_CENTER].GetPositionY(), Locs[LOC_CENTER].GetPositionZ(), Locs[LOC_CENTER].GetOrientation(), TEMPSUMMON_CORPSE_TIMED_DESPAWN, 630000000))
                                 jaraxxus->GetMotionMaster()->MovePoint(0, Locs[LOC_CENTER].GetPositionX(), Locs[LOC_CENTER].GetPositionY() - 10.0f, Locs[LOC_CENTER].GetPositionZ());
-                            c->HandleEmoteCommand(EMOTE_STATE_NONE);
                             c->AI()->Talk(SAY_STAGE_1_04);
                         }
 
+                        events.RescheduleEvent(EVENT_WILFRED_TALK_EMOTE, 2600ms);
+                        events.RescheduleEvent(EVENT_WILFRED_STOP_TALK_EMOTE, 8700ms);
                         events.RescheduleEvent(EVENT_SCENE_105, 3s);
                         break;
                     }
@@ -902,12 +903,6 @@ public:
                     {
                         if (Creature* c = instance->GetCreature(NPC_JaraxxusGUID))
                             c->SetFacingTo(M_PI / 2);
-                        if (Creature* c = instance->GetCreature(NPC_PurpleGroundGUID))
-                            c->DespawnOrUnsummon();
-                        NPC_PurpleGroundGUID.Clear();
-                        if (Creature* c = instance->GetCreature(NPC_PortalGUID))
-                            c->DespawnOrUnsummon();
-                        NPC_PortalGUID.Clear();
 
                         events.RescheduleEvent(EVENT_SCENE_106, 10s);
                         break;
@@ -924,6 +919,9 @@ public:
                     {
                         if (Creature* c = instance->GetCreature(NPC_FizzlebangGUID))
                             c->AI()->Talk(SAY_STAGE_1_06);
+                        if (Creature* c = instance->GetCreature(NPC_PurpleGroundGUID))
+                            c->DespawnOrUnsummon();
+                        NPC_PurpleGroundGUID.Clear();
 
                         events.RescheduleEvent(EVENT_SCENE_108, 800ms);
                         break;
